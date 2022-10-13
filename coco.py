@@ -26,8 +26,8 @@ for txt in txt_files:
     for line in lines:
         s_line = line.split()
         class_id = s_line[0]
-        # if class_id == '2' or class_id == '3' or class_id == '5' or class_id == '7':
-        if class_id == '73':
+        # Car , Motorcycle, Bus and Truck
+        if class_id == '2' or class_id == '3' or class_id == '5' or class_id == '7':
             print('[INFO] Class Matched...')
             line_list.append(line)
     
@@ -36,7 +36,16 @@ for txt in txt_files:
         updated_txt = open(f'{save_dir}/labels/val2017/{txt_name}', 'w+')
         for new_line in line_list:
             new_line_split = new_line.split()
-            new_line_split[0] = '0'
+            
+            if new_line_split[0] == '2':
+                new_line_split[0] = '0'
+            elif new_line_split[0] == '3':
+                new_line_split[0] = '1'
+            elif new_line_split[0] == '5':
+                new_line_split[0] = '2'
+            elif new_line_split[0] == '7':
+                new_line_split[0] = '3'
+            
             new_line_split = ' '.join(new_line_split)
             u_new_line = f'{new_line_split}\n'
             updated_txt.write(u_new_line)
