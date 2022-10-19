@@ -56,7 +56,7 @@ while True:
     class_list = box['class'].to_list()
     for i in box.index:
         xmin, ymin, xmax, ymax, conf, class_id = int(box['xmin'][i]), int(box['ymin'][i]), int(box['xmax'][i]), \
-            int(box['ymax'][i]), box['confidence'][0], box['class'][i]
+            int(box['ymax'][i]), box['confidence'][i], box['class'][i]
         if conf > confidence:
             boxes = [xmin, ymin, int(xmax-xmin), int(ymax-ymin)]
             bbs = (boxes, conf, class_labels[class_id])
@@ -83,10 +83,10 @@ while True:
 
             print('result_ocr:\n', result_ocr)
 
-            for i in result_ocr:
-                # print(i)
-                plot_one_box(bbox, img, (0, 150, 0), f'{i[1].upper()}', 4)
-                getAttendance(track_id, i[1].upper())
+            if len(result_ocr)>0:
+                plate_no = result_ocr[0][1].upper()
+                plot_one_box(bbox, img, (0, 150, 0), f'{plate_no}', 4)
+                getAttendance(track_id, plate_no)
             # cv2.imshow('Video roi', img_roi)
             # cv2.imwrite(f"Images/{len(os.listdir('Images'))}.jpg", img_roi)
             
