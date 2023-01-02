@@ -67,16 +67,25 @@ while True:
 
             print('result_ocr:\n', result_ocr)
 
-            if len(result_ocr)>0:
-                plate_no = ''
-                for ocr in result_ocr:
-                    plate_no = ocr[1].upper() + plate_no
-                    if ocr[2] > ocr_conf:                   
+            ## easyOCR setup
+            # Single Word
+            if len(result_ocr) == 1:
+                plate_no = result_ocr[0][1].upper()
+                if result_ocr[0][2] > ocr_conf:
+                    getAttendance(plate_no, img_roi)
+                plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
+            
+            # More than 1 words, only checking confidence of 1st or 2nd word.
+            elif len(result_ocr) > 1:
+                if result_ocr[0][2] > ocr_conf or result_ocr[1][2] > ocr_conf:
+                    plate_no = ''
+                    for ocr in result_ocr:
+                        plate_no = ocr[1].upper() + plate_no            
                         getAttendance(plate_no, img_roi)
-                plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 4)
+                    plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
             
             # Plate Image (ROI)
-            cv2.imshow('Video roi', img_roi)
+            # cv2.imshow('Video roi', img_roi)
             
     if save:
         out_vid.write(img)
