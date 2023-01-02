@@ -26,13 +26,16 @@ def getAttendance(number, img_roi):
 
 save = False
 confidence = 0.5
+ocr_conf = 0.5
 class_labels = 'no_plate'
 os.makedirs('Images', exist_ok=True)
 
 # YOLOv7
 model = custom(path_or_model='best.pt', gpu=True)
 
-cap = cv2.VideoCapture('test.mp4')
+cap = cv2.VideoCapture('t1.mp4')
+# cap = cv2.VideoCapture(2)
+
 fps = cap.get(cv2.CAP_PROP_FPS)
 w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -65,10 +68,12 @@ while True:
             print('result_ocr:\n', result_ocr)
 
             if len(result_ocr)>0:
-                plate_no = result_ocr[0][1].upper()
+                plate_no = ''
+                for ocr in result_ocr:
+                    plate_no = ocr[1].upper() + plate_no
+                    if ocr[2] > ocr_conf:                   
+                        getAttendance(plate_no, img_roi)
                 plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 4)
-                if result_ocr[0][2] > 0.5:                   
-                    getAttendance(plate_no, img_roi)
             
             # Plate Image (ROI)
             cv2.imshow('Video roi', img_roi)
@@ -76,7 +81,7 @@ while True:
     if save:
         out_vid.write(img)
 
-    img = cv2.resize(img, (940, 550))
+    # img = cv2.resize(img, (940, 550))
     cv2.imshow('Video', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         cv2.destroyAllWindows()
