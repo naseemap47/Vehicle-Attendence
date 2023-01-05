@@ -1,9 +1,9 @@
-import os
+from transformers import TrOCRProcessor, VisionEncoderDecoderModel
 from utils.hubconf import custom
 from utils.plots import plot_one_box
 import cv2
-import easyocr
 import datetime
+import os
 
 
 def getAttendance(number, img_roi):
@@ -25,14 +25,17 @@ def getAttendance(number, img_roi):
 
 
 confidence = 0.5
-ocr_conf = 0.1
 class_labels = 'no_plate'
 os.makedirs('Images', exist_ok=True)
 
 # YOLOv7
 model = custom(path_or_model='best.pt', gpu=True)
 
-img = cv2.imread('test_img/2.jpg')
+# TrOCR
+processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-printed")
+model_ocr = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-printed")
+
+img = cv2.imread('test_img/3.png')
 results = model(img)
 
 # Bounding Box
@@ -42,30 +45,19 @@ for i in box.index:
     xmin, ymin, xmax, ymax, conf, class_id = int(box['xmin'][i]), int(box['ymin'][i]), int(box['xmax'][i]), \
         int(box['ymax'][i]), box['confidence'][i], box['class'][i]
     if conf > confidence:
-        plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), class_labels, 2)
+        # plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), class_labels, 2)
         img_roi = img[ymin:ymax, xmin:xmax]
-        img_roi_gray = cv2.cvtColor(img_roi, cv2.COLOR_BGR2GRAY)
-        reader = easyocr.Reader(['en'])
-        result_ocr = reader.readtext(img_roi_gray)
 
-        print('result_ocr:\n', result_ocr)
-
-        ## easyOCR setup
-        # Single Word
-        if len(result_ocr) == 1:
-            plate_no = result_ocr[0][1].upper()
-            if result_ocr[0][2] > ocr_conf:
-                getAttendance(plate_no, img_roi)
-            plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
+        ## TrOCR setup
+        img_roi_rgb = cv2.cvtColor(img_roi, cv2.COLOR_BGR2RGB)
+        pixel_values = processor(img_roi_rgb, return_tensors="pt").pixel_values
+        generated_ids = model_ocr.generate(pixel_values)
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+        print('result_ocr: ', generated_text)
         
-        # More than 1 words
-        elif len(result_ocr) > 1:
-            if result_ocr[0][2] > ocr_conf or result_ocr[1][2] > ocr_conf:
-                plate_no = ''
-                for ocr in result_ocr:
-                    plate_no = ocr[1].upper() + plate_no            
-                    getAttendance(plate_no, img_roi)
-                plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
+        plate_no = generated_text.upper()
+        getAttendance(plate_no, img_roi)
+        plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
         
         # Plate Image (ROI)
         # cv2.imshow('Video roi', img_roi)
