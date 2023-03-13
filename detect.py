@@ -4,6 +4,7 @@ from utils.plots import plot_one_box
 import cv2
 import datetime
 import os
+from ultralytics import YOLO
 
 
 def getAttendance(number, img_roi):
@@ -24,19 +25,19 @@ def getAttendance(number, img_roi):
             cv2.imwrite(f"Images/{len(os.listdir('Images'))}.jpg", img_roi)
 
 
-save = True
+save = False
 confidence = 0.5
 class_labels = 'no_plate'
 os.makedirs('Images', exist_ok=True)
 
-# YOLOv7
-model = custom(path_or_model='best.pt', gpu=True)
+# YOLOv8
+model = YOLO('best.pt')
 
 # TrOCR
 processor = TrOCRProcessor.from_pretrained("microsoft/trocr-base-printed")
 model_ocr = VisionEncoderDecoderModel.from_pretrained("microsoft/trocr-base-printed")
 
-cap = cv2.VideoCapture('test/t2.mp4')
+cap = cv2.VideoCapture('test.mp4')
 # cap = cv2.VideoCapture(2)
 
 fps = cap.get(cv2.CAP_PROP_FPS)
@@ -55,30 +56,33 @@ while True:
 
     results = model(img)
 
-    # Bounding Box
-    box = results.pandas().xyxy[0]
-    class_list = box['class'].to_list()
-    for i in box.index:
-        xmin, ymin, xmax, ymax, conf, class_id = int(box['xmin'][i]), int(box['ymin'][i]), int(box['xmax'][i]), \
-            int(box['ymax'][i]), box['confidence'][i], box['class'][i]
+    for result in results:
+        bboxs = result.boxes.xyxy
+        conf = result.boxes.conf
+        cls = result.boxes.cls
+        for bbox, cnf, cs in zip(bboxs, conf, cls):
+            xmin = int(bbox[0])
+            ymin = int(bbox[1])
+            xmax = int(bbox[2])
+            ymax = int(bbox[3])
         
-        if conf > confidence:
-            # plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), class_labels, 2)
-            img_roi = img[ymin:ymax, xmin:xmax]
-            
-            ## TrOCR setup
-            img_roi_rgb = cv2.cvtColor(img_roi, cv2.COLOR_BGR2RGB)
-            pixel_values = processor(img_roi_rgb, return_tensors="pt").pixel_values
-            generated_ids = model_ocr.generate(pixel_values)
-            generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
-            print('result_ocr: ', generated_text)
+            if cnf > confidence:
+                # plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), class_labels, 2)
+                img_roi = img[ymin:ymax, xmin:xmax]
+                
+                ## TrOCR setup
+                img_roi_rgb = cv2.cvtColor(img_roi, cv2.COLOR_BGR2RGB)
+                pixel_values = processor(img_roi_rgb, return_tensors="pt").pixel_values
+                generated_ids = model_ocr.generate(pixel_values)
+                generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)[0]
+                print('result_ocr: ', generated_text)
 
-            plate_no = generated_text.upper()
-            getAttendance(plate_no, img_roi)
-            plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
-            
-            # Plate Image (ROI)
-            # cv2.imshow('Video roi', img_roi)
+                plate_no = generated_text.upper()
+                getAttendance(plate_no, img_roi)
+                plot_one_box([xmin, ymin, xmax, ymax], img, (0, 150, 0), f'{plate_no}', 2)
+                
+                # Plate Image (ROI)
+                # cv2.imshow('Video roi', img_roi)
             
     if save:
         out_vid.write(img)
